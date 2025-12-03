@@ -9,8 +9,8 @@ app = Flask(__name__)
 # --- CONFIG ---
 # Gunakan path dinamis agar aman di server manapun
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-MODEL_PATH = os.path.join(BASE_DIR, 'model_gaya_belajar_rf_augmented.pkl')
-SCALER_PATH = os.path.join(BASE_DIR, 'scaler_gaya_belajar_augmented.pkl')
+MODEL_PATH = os.path.join(BASE_DIR, 'no insight\model_gaya_belajar_rf_augmented.pkl')
+SCALER_PATH = os.path.join(BASE_DIR, 'no insight\scaler_gaya_belajar_augmented.pkl')
 
 # --- LOAD MODEL ---
 print(f"Loading model from... {MODEL_PATH}")
@@ -62,21 +62,38 @@ def predict():
         return jsonify({'status': 'error', 'message': 'Model not loaded correctly on server.'})
 
     try:
-        data = request.json
+        data = request.get_json()
 
-        # Fitur harus sama persis dengan training
+        # Ambil nilai input
+        total_active_days = float(data['total_active_days'])
+        avg_study_duration = float(data['avg_study_duration'])
+        avg_exam_duration = float(data['avg_exam_duration'])
+        avg_submission_rating = float(data['avg_submission_rating'])
+        avg_exam_score = float(data['avg_exam_score'])
+
+        # Buat DataFrame sesuai fitur model
         features = ['total_active_days', 'avg_study_duration', 'avg_exam_duration',
                     'avg_submission_rating', 'avg_exam_score']
 
-        # Handle input dictionary
-        if isinstance(data, dict):
-            df_input = pd.DataFrame([data], columns=features)
-        else:
-            return jsonify({'status': 'error', 'message': 'Format data harus JSON Object'})
+        df_input = pd.DataFrame([{
+            'total_active_days': total_active_days,
+            'avg_study_duration': avg_study_duration,
+            'avg_exam_duration': avg_exam_duration,
+            'avg_submission_rating': avg_submission_rating,
+            'avg_exam_score': avg_exam_score
+        }], columns=features)
 
         # Scaling & Prediksi
         X_scaled = scaler.transform(df_input)
         prediction_label = model.predict(X_scaled)[0]
+
+        # Jika model mendukung probabilitas
+        probabilities = None
+        if hasattr(model, "predict_proba"):
+            proba = model.predict_proba(X_scaled)[0]
+            # Ambil semua label kelas
+            classes = model.classes_
+            probabilities = {str(cls): float(proba[i]) for i, cls in enumerate(classes)}
 
         # Ambil Insight dari Kamus
         insight_data = INSIGHTS.get(prediction_label, {
@@ -84,16 +101,21 @@ def predict():
             "saran": []
         })
 
-        # Output JSON Lengkap
+        # Output JSON Lengkapz
         return jsonify({
             'status': 'success',
             'gaya_belajar': prediction_label,
             'deskripsi': insight_data['deskripsi'],
-            'saran': insight_data['saran']
+            'saran': insight_data['saran'],
+            'probabilities': probabilities  # Tambahkan probabilitas jika ada
         })
 
+    except KeyError as e:
+        return jsonify({'status': 'error', 'message': f'Field {str(e)} tidak ditemukan dalam input.'}), 400
+    except ValueError as e:
+        return jsonify({'status': 'error', 'message': f'Input harus berupa angka: {str(e)}'}), 400
     except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)})
+        return jsonify({'status': 'error', 'message': str(e)}), 500
 
 # WSGI Entry point
 application = app
