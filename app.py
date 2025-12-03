@@ -9,8 +9,9 @@ app = Flask(__name__)
 # --- CONFIG ---
 # Gunakan path dinamis agar aman di server manapun
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-MODEL_PATH = os.path.join(BASE_DIR, 'no insight\model_gaya_belajar_rf_augmented.pkl')
-SCALER_PATH = os.path.join(BASE_DIR, 'no insight\scaler_gaya_belajar_augmented.pkl')
+MODEL_PATH = os.path.join(BASE_DIR, 'no insight/model_gaya_belajar_rf_augmented.pkl')
+SCALER_PATH = os.path.join(BASE_DIR, 'no insight/scaler_gaya_belajar_augmented.pkl')
+
 
 # --- LOAD MODEL ---
 print(f"Loading model from... {MODEL_PATH}")
